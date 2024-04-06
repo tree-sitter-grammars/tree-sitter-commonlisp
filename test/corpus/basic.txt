@@ -229,10 +229,10 @@ Loop Macro
 (cl:loop for dim-idx in xyz
                  for letter in (list 'x 'y 'z)
                  collect (let ((current-range (nth dim-idx iteration-ranges)))
-                           `(, (get-counter-symbol dim-idx) 
+                           `(, (get-counter-symbol dim-idx)
                                (+ ,(range-start current-range)
                                   (* ,(range-step current-range)
-                                     ,(case letter 
+                                     ,(case letter
                                         (x '(+ thread-idx-x (* block-idx-x block-dim-x)))
                                         (y '(+ thread-idx-y (* block-idx-y block-dim-y)))
                                         (z '(+ thread-idx-z (* block-idx-z block-dim-z)))))))))
@@ -916,9 +916,9 @@ Num Literals
 Format
 ================================================================================
 
-"~S" 	
+"~S"
 "~3,-4:@s"
-	
+
 "~,+4S"
 
 (format T "~8,0b" 5)
@@ -1035,15 +1035,15 @@ Trailing sharps
 https://lisptips.com/post/44370032877/literal-syntax-for-integers
 ================================================================================
 
-#2r11010101  ;Another way of writing 213 decimal  
-#b11010101   ;Ditto                               
-#b+11010101  ;Ditto                               
-#o325        ;Ditto, in octal radix               
-#xD5         ;Ditto, in hexadecimal radix         
-#16r+D5      ;Ditto                               
-#o-300       ;Decimal -192, written in base 8     
-#3r-21010    ;Same thing in base 3                
-#25R-7H      ;Same thing in base 25               
+#2r11010101  ;Another way of writing 213 decimal
+#b11010101   ;Ditto
+#b+11010101  ;Ditto
+#o325        ;Ditto, in octal radix
+#xD5         ;Ditto, in hexadecimal radix
+#16r+D5      ;Ditto
+#o-300       ;Decimal -192, written in base 8
+#3r-21010    ;Same thing in base 3
+#25R-7H      ;Same thing in base 25
 #xACCEDED    ;181202413, in hexadecimal radix
 --------------------------------------------------------------------------------
 
@@ -1110,11 +1110,11 @@ Self-references
 @ in defun identifiers
 ================================================================================
 ;; this highlights properly
-(defun foo (bar)                                                                                                                                                                                         
-  (baz))                                                                                                                                                                                                     
+(defun foo (bar)
+  (baz))
 
-;; this doesn't and breaks all highlighting below                                                                                                                                                                                                        
-(defun @foo (bar)                                                                                                                                                                                        
+;; this doesn't and breaks all highlighting below
+(defun @foo (bar)
   (baz))
 --------------------------------------------------------------------------------
 
@@ -1321,7 +1321,7 @@ Chars #\(
 Issue #10
 ================================================================================
 
-(loop for s in symbols                                                    
+(loop for s in symbols
       maximizing (length (symbol-name s)))
 
 --------------------------------------------------------------------------------
@@ -1342,3 +1342,25 @@ Issue #10
             (list_lit
               (sym_lit)
               (sym_lit))))))))
+
+================================================================================
+Bracket s-exprs
+================================================================================
+
+(setf *synth* (play(sin-osc.ar [320 321] 0 0.2)))
+
+--------------------------------------------------------------------------------
+
+(source
+  (list_lit
+    (sym_lit)
+    (sym_lit)
+    (list_lit
+      (sym_lit)
+      (list_lit
+        (sym_lit)
+        (bracket_form
+          (num_lit)
+          (num_lit))
+        (num_lit)
+        (num_lit)))))

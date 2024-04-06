@@ -368,6 +368,7 @@ module.exports = grammar(clojure, {
                     $.unquoting_lit,
                     $.include_reader_macro,
                     $.complex_num_lit,
+                    $.bracket_form,
                     ".",
                 )),
 
@@ -381,6 +382,15 @@ module.exports = grammar(clojure, {
                 field('condition', $._form),
                 repeat($._gap),
                 field('target', $._form)),
+
+        // This is a non-standard syntax. However, it seems to be popular for macors
+        // (see https://github.com/tree-sitter-grammars/tree-sitter-commonlisp/issues/27)
+        bracket_form: $ =>
+          seq('[',
+            optional($._gap),
+            optional(seq($._form, repeat(seq($._gap, $._form)))),
+            optional($._gap),
+            ']'),
 
         complex_num_lit: $ =>
             seq(repeat($._metadata_lit),
