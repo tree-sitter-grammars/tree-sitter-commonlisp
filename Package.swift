@@ -1,56 +1,40 @@
 // swift-tools-version:5.3
+
+import Foundation
 import PackageDescription
 
+var sources = ["src/parser.c"]
+if FileManager.default.fileExists(atPath: "src/scanner.c") {
+    sources.append("src/scanner.c")
+}
+
 let package = Package(
-    name: "TreeSitterCommonlisp",
-    platforms: [.macOS(.v10_13), .iOS(.v11)],
+    name: "TreeSitterCommonLisp",
     products: [
-        .library(name: "TreeSitterCommonlisp", targets: ["TreeSitterCommonlisp"]),
+        .library(name: "TreeSitterCommonLisp", targets: ["TreeSitterCommonLisp"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/ChimeHQ/SwiftTreeSitter", from: "0.8.0"),
+        .package(name: "SwiftTreeSitter", url: "https://github.com/tree-sitter/swift-tree-sitter", from: "0.9.0"),
     ],
     targets: [
-        .target(name: "TreeSitterCommonlisp",
-                path: ".",
-                exclude: [
-                    "Cargo.toml",
-                    "Makefile",
-                    "binding.gyp",
-                    "bindings/c",
-                    "bindings/go",
-                    "bindings/node",
-                    "bindings/python",
-                    "bindings/rust",
-                    "prebuilds",
-                    "grammar.js",
-                    "package.json",
-                    "package-lock.json",
-                    "pyproject.toml",
-                    "setup.py",
-                    "test",
-                    ".editorconfig",
-                    ".github",
-                    ".gitignore",
-                    ".gitattributes",
-                    ".gitmodules",
-                ],
-                sources: [
-                    "src/parser.c",
-                    // NOTE: if your language has an external scanner, add it here.
-                ],
-                resources: [
-                    .copy("queries")
-                ],
-                publicHeadersPath: "bindings/swift",
-                cSettings: [.headerSearchPath("src")]),
-         .testTarget(
-                name: "TreeSitterCommonlispTests",
-                dependencies: [
-                    "SwiftTreeSitter",
-                    "TreeSitterCommonlisp",
-                ],
-                path: "bindings/swift/TreeSitterCommonlispTests"
+        .target(
+            name: "TreeSitterCommonLisp",
+            dependencies: [],
+            path: ".",
+            sources: sources,
+            resources: [
+                .copy("queries")
+            ],
+            publicHeadersPath: "bindings/swift",
+            cSettings: [.headerSearchPath("src")]
+        ),
+        .testTarget(
+            name: "TreeSitterCommonLispTests",
+            dependencies: [
+                "SwiftTreeSitter",
+                "TreeSitterCommonLisp",
+            ],
+            path: "bindings/swift/TreeSitterCommonLispTests"
         )
     ],
     cLanguageStandard: .c11
