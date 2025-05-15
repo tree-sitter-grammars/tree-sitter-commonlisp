@@ -4,36 +4,64 @@ on:
   push:
     branches: [master]
     paths:
+      - grammar.js
+      - src/**
+      - test/**
+      - bindings/**
+      - binding.gyp
   pull_request:
+    paths:
+      - grammar.js
+      - src/**
+      - test/**
+      - bindings/**
+      - binding.gyp
+
+concurrency:
+  group: ${{github.workflow}}-${{github.ref}}
+  cancel-in-progress: true
 
 jobs:
-  build:
-    name: Run tests
-    runs-on: ubuntu-latest
+  test:
+    name: Test parser
+    runs-on: ${{matrix.os}}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-14]
     steps:
-      - uses: actions/checkout@v4
-      - uses: tree-sitter/setup-action@v1
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          install-lib: false
-      - name: Run tests
+          submodules: true
+      - name: Set up tree-sitter
+        uses: tree-sitter/setup-action/cli@v1
+      - name: Run parser and binding tests
         uses: tree-sitter/parser-test-action@v2
         with:
+          generate: false
           test-rust: true
           test-node: true
           test-python: true
           test-go: true
-          test-swift: true
-      - name: Parse Petalisp
-        run: |
-          git submodule init
-          git submodule update
-          if (( $(node_modules/tree-sitter-cli/tree-sitter parse test/Petalisp/**/*.lisp -q | wc -l) > 2 )); then # There are 2 known failures (strings that are not format strings but use ~X syntax)
-            exit 1
-          else
-            echo "Successfully parsed Petalisp."
-          fi
-          if (( $(node_modules/tree-sitter-cli/tree-sitter parse test/sly/**/*.lisp -q | wc -l) > 4 )); then # There are 2 known failures (strings that are not format strings but use ~X syntax)
-            exit 1
-          else
-            echo "Successfully parsed Sly"
-          fi
+          test-swift: ${{runner.os == 'macOS'}}
+      - name: Parse sample files
+        uses: tree-sitter/parse-action@v4
+        id: parse-files
+        with:
+          files: |-
+            test/**/*.cl
+            test/**/*.lisp
+          invalid-files: |-
+            test/Petalisp/code/api/documentation.lisp
+            test/Petalisp/code/test-suite/code-statistics.lisp
+            test/sly/contrib/slynk-fancy-inspector.lisp
+            test/sly/slynk/backend/lispworks.lisp
+            test/sly/slynk/metering.lisp
+            test/sly/slynk/slynk-rpc.lisp
+      - name: Upload failures artifact
+        uses: actions/upload-artifact@v4
+        if: "!cancelled() && steps.parse-files.outcome == 'failure'"
+        with:
+          name: failures-${{runner.os}}
+          path: ${{steps.parse-files.outputs.failures}}
