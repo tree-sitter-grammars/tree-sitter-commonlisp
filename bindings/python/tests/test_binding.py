@@ -9,17 +9,10 @@ class TestLanguage(TestCase):
         try:
             tree_sitter.Language(tree_sitter_commonlisp.language())
         except Exception:
-            self.fail("Error loading C++ grammar")
+            self.fail("Error loading Common Lisp grammar")
 
     def test_parse(self):
         lang = tree_sitter.Language(tree_sitter_commonlisp.language())
         parser = tree_sitter.Parser(lang)
-        tree = parser.parse(
-            bytes(
-                """
-        (+ 1 1)
-        """,
-                "utf8"
-            )
-        )
-        assert tree
+        tree = parser.parse(b"(+ 1 1)")
+        self.assertIsNotNone(tree)
