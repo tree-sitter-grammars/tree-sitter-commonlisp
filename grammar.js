@@ -137,7 +137,7 @@ module.exports = grammar(clojure, {
 
 
     rules: {
-        block_comment: _ => token(seq('#|', repeat(choice(/[^|]/, /\|[^#]/)), '|#')),
+        block_comment: _ => token(seq('#|', /[^|]*\|+([^#|][^|]*\|+)*/, '#')),
 
         fancy_literal: _ => token(seq('|', repeat(/[^|]/), '|')),
 
