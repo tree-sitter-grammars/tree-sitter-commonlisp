@@ -1,0 +1,395 @@
+// Common Lisp grammar for tree-sitter (native DSL).
+// Extends tree-sitter-clojure.
+
+let clojure = inherit("../tree-sitter-clojure/grammar.tsg")
+
+let PREC = {
+    NUM_LIT: 0, NORMAL: 1, PACKAGE_LIT: 2, DOTTET_LIT: 3,
+    KWD_LIT: 4, SPECIAL: 5, META_LIT: 6,
+}
+
+let WHITESPACE_CHAR: rule_t = regexp(r"[\f\n\r\t \u000b\u001c\u001d\u001e\u001f\u2028\u2029\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2008\u2009\u200a\u205f\u3000]")
+let WHITESPACE: rule_t = token(repeat1(WHITESPACE_CHAR))
+
+let SYMBOL_HEAD: rule_t = regexp(r#"[^:\f\n\r\t ()\[\]{}"^;`\\,#'\u000b\u001c\u001d\u001e\u001f\u2028\u2029\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2008\u2009\u200a\u205f\u3000]"#)
+let SYMBOL_WITHOUT_SLASH: rule_t = regexp(r#"[^:\f\n\r\t ()\[\]{}"^;/`\\,#'\u000b\u001c\u001d\u001e\u001f\u2028\u2029\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2008\u2009\u200a\u205f\u3000]"#)
+let SYMBOL_BODY: rule_t = choice(SYMBOL_HEAD, regexp(r"[#']"))
+let SYMBOL: rule_t = token(seq(SYMBOL_HEAD, repeat(SYMBOL_BODY)))
+
+let STRING: rule_t = token(seq(
+    "\"",
+    repeat(regexp(r#"[^"\\]"#)),
+    repeat(seq("\\", regexp(r"."), repeat(regexp(r#"[^"\\]"#)))),
+    "\"",
+))
+
+let DIGIT: rule_t = regexp(r"[0-9]")
+let ALPHANUMERIC: rule_t = regexp(r"[0-9a-zA-Z]")
+let HEX_DIGIT: rule_t = regexp(r"[0-9a-fA-F]")
+let OCTAL_DIGIT: rule_t = regexp(r"[0-7]")
+let BINARY_DIGIT: rule_t = regexp(r"[0-1]")
+
+let HEX_NUMBER: rule_t = seq(choice("#x", "#X"), optional(regexp(r"[+-]")), repeat1(HEX_DIGIT))
+let OCTAL_NUMBER: rule_t = seq(choice("#o", "#O"), optional(regexp(r"[+-]")), repeat1(OCTAL_DIGIT))
+let BINARY_NUMBER: rule_t = seq(choice("#b", "#B"), optional(regexp(r"[+-]")), repeat1(BINARY_DIGIT))
+let RADIX_NUMBER: rule_t = seq("#", repeat1(DIGIT), regexp(r"[rR]"), repeat1(ALPHANUMERIC))
+let RATIO: rule_t = seq(repeat1(DIGIT), "/", repeat1(DIGIT))
+let DOUBLE: rule_t = seq(
+    repeat1(DIGIT),
+    optional(seq(".", repeat(DIGIT))),
+    optional(seq(regexp(r"[eEsSfFdDlL]"), optional(regexp(r"[+-]")), repeat1(DIGIT))),
+)
+let INTEGER: rule_t = seq(repeat1(DIGIT), optional(regexp(r"[MN]")))
+let NUMBER: rule_t = token(seq(
+    optional(regexp(r"[+-]")),
+    choice(HEX_NUMBER, OCTAL_NUMBER, RADIX_NUMBER, BINARY_NUMBER, RATIO, DOUBLE, INTEGER),
+))
+
+macro cl_symbol(sym: rule_t) rule_t { seq(optional(seq("cl", ":")), sym) }
+macro loop_symbol(sym: rule_t) rule_t { seq(optional(seq(optional("cl"), ":")), sym) }
+macro opt_seq2(a: rule_t, b: rule_t) rule_t { optional(seq(a, b)) }
+
+grammar {
+    language: "commonlisp",
+    inherits: clojure,
+    extras: [block_comment],
+    conflicts: [
+        [for_clause_word, package_lit],
+        [with_clause, package_lit],
+        [with_clause],
+        [for_clause],
+        [accumulation_clause],
+    ],
+}
+
+rule block_comment {
+    token(seq("#|", repeat(choice(regexp(r"[^|]"), regexp(r"\|[^#]"))), "|#"))
+}
+
+rule fancy_literal { token(seq("|", repeat(regexp(r"[^|]")), "|")) }
+
+override rule _ws { WHITESPACE }
+
+override rule unquoting_lit {
+    seq(field(marker, ","), repeat(_gap), field(value, _form))
+}
+
+override rule unquote_splicing_lit {
+    seq(repeat(_metadata_lit), field(marker, ",@"), repeat(_gap), field(value, _form))
+}
+
+override rule syn_quoting_lit {
+    seq(field(marker, "`"), repeat(_gap), field(value, _form))
+}
+
+rule defun {
+    prec(PREC.SPECIAL, seq(
+        field(open, "("),
+        optional(_gap),
+        defun_header,
+        optional(_gap),
+        repeat(choice(field(value, _form), _gap)),
+        field(close, ")"),
+    ))
+}
+
+rule _format_token {
+    choice(alias(NUMBER, num_lit), seq("'", alias(regexp(r"."), char_lit)))
+}
+rule format_prefix_parameters { choice("v", "V", "#") }
+rule format_modifiers {
+    seq(repeat(choice(_format_token, ",")), choice("@", "@:", ":", ":@"))
+}
+rule format_directive_type {
+    choice(
+        seq(optional(field(repetitions, _format_token)), choice("~", "%", "&", "|")),
+        regexp(r"[cC]"),
+        regexp(r"\^"),
+        "\n",
+        "\r",
+        regexp(r"[pP]"),
+        regexp(r"[iI]"),
+        regexp(r"[wW]"),
+        regexp(r"[aA]"),
+        "_",
+        regexp(r"[()]"),
+        regexp(r"[{}]"),
+        regexp(r"[\[\]]"),
+        regexp(r"[<>]"),
+        ";",
+        seq(field(numberOfArgs, _format_token), "*"),
+        seq("/", choice(alias(_package_lit_without_slash, package_lit), _sym_lit_without_slash), "/"),
+        "?",
+        "Newline",
+        seq(repeat(choice(_format_token, ",")), regexp(r"[$rRbBdDgGxXeEoOsStTfF]")),
+    )
+}
+rule format_specifier {
+    prec_left(0, seq(
+        "~",
+        optional(format_prefix_parameters),
+        optional(format_modifiers),
+        prec(5, format_directive_type),
+    ))
+}
+
+override rule str_lit {
+    seq(
+        "\"",
+        repeat(choice(
+            token_immediate(prec(1, regexp(r#"[^\\~"]+"#))),
+            token_immediate(seq(regexp(r"\\."))),
+            format_specifier,
+        )),
+        optional("~"),
+        "\"",
+    )
+}
+
+rule for_clause_word {
+    loop_symbol(choice(
+        "in", "across", "being", "using",
+        regexp(r"being (the|each) (hash-key[s]?|hash-value[s]?|present-symbol[s]?) (in|of)"),
+        "below", "above", "from", "to",
+        "upto", "upfrom", "downto", "downfrom",
+        "on", "by", "then", "=",
+    ))
+}
+
+rule _for_part { seq(repeat(_gap), for_clause_word, repeat(_gap), _form) }
+
+rule accumulation_verb {
+    loop_symbol(regexp(r"(maximize|minimize|(collect|append|nconc|count)(ing)?|sum(ming)?|maximizing|minimizing)"))
+}
+
+rule for_clause {
+    choice(
+        seq(
+            choice(loop_symbol("for"), loop_symbol("and"), loop_symbol("as")),
+            repeat(_gap),
+            field(variable, _form),
+            optional(field(type, seq(repeat(_gap), _form))),
+            repeat1(_for_part),
+        ),
+        loop_symbol("and"),
+    )
+}
+
+rule with_clause {
+    seq(
+        loop_symbol("with"),
+        repeat(_gap),
+        choice(_form, seq(_form, repeat(_gap), field(type, _form))),
+        repeat(_gap),
+        opt_seq2(loop_symbol("="), repeat(_gap)),
+        opt_seq2(_form, repeat(_gap)),
+    )
+}
+
+rule do_clause {
+    prec_left(0, seq(
+        loop_symbol("do"),
+        repeat1(prec_left(0, seq(repeat(_gap), _form, repeat(_gap)))),
+    ))
+}
+
+rule while_clause {
+    prec_left(0, seq(
+        choice(loop_symbol("while"), loop_symbol("until")),
+        repeat(_gap),
+        _form,
+    ))
+}
+
+rule repeat_clause {
+    prec_left(0, seq(loop_symbol("repeat"), repeat(_gap), _form))
+}
+
+rule condition_clause {
+    prec_left(0, choice(
+        seq(
+            choice(
+                loop_symbol("when"), loop_symbol("if"), loop_symbol("unless"),
+                loop_symbol("always"), loop_symbol("thereis"), loop_symbol("never"),
+            ),
+            repeat(_gap),
+            _form,
+        ),
+        loop_symbol("else"),
+    ))
+}
+
+rule accumulation_clause {
+    seq(
+        accumulation_verb,
+        repeat(_gap),
+        _form,
+        optional(seq(repeat(_gap), loop_symbol("into"), repeat(_gap), _form)),
+    )
+}
+
+rule termination_clause {
+    prec_left(0, seq(
+        choice(loop_symbol("finally"), loop_symbol("return"), loop_symbol("initially")),
+        repeat(_gap),
+        _form,
+    ))
+}
+
+rule loop_clause {
+    seq(choice(
+        for_clause, do_clause, list_lit, while_clause, repeat_clause,
+        accumulation_clause, condition_clause, with_clause,
+        termination_clause, while_clause,
+    ))
+}
+
+rule loop_macro {
+    prec(PREC.SPECIAL, seq(
+        field(open, "("),
+        optional(_gap),
+        cl_symbol("loop"),
+        repeat(choice(loop_clause, _gap)),
+        field(close, ")"),
+    ))
+}
+
+rule defun_keyword {
+    prec(10, cl_symbol(choice("defun", "defmacro", "defgeneric", "defmethod")))
+}
+
+rule defun_header {
+    prec(PREC.SPECIAL, choice(
+        seq(
+            field(keyword, defun_keyword),
+            repeat(_gap),
+            choice(unquoting_lit, unquote_splicing_lit),
+        ),
+        seq(
+            field(keyword, defun_keyword),
+            repeat(_gap),
+            field(function_name, _form),
+            optional(field(specifier, seq(repeat(_gap), choice(kwd_lit, sym_lit)))),
+            repeat(_gap),
+            field(lambda_list, choice(list_lit, unquoting_lit)),
+        ),
+        seq(
+            field(keyword, alias("lambda", defun_keyword)),
+            repeat(_gap),
+            field(lambda_list, choice(list_lit, unquoting_lit)),
+        ),
+    ))
+}
+
+rule array_dimension { prec(100, regexp(r"\d+[aA]")) }
+
+override rule char_lit {
+    seq("#", regexp(r"\\([^\f\n\r\t ()]+|[()])"))
+}
+
+override rule vec_lit {
+    prec(PREC.SPECIAL, choice(
+        seq(field(open, choice("#0A", "#0a")), choice(num_lit, complex_num_lit)),
+        seq(field(open, "#"), optional(array_dimension), list_lit),
+    ))
+}
+
+rule path_lit {
+    prec(PREC.SPECIAL, seq(
+        field(open, choice("#P", "#p")),
+        alias(STRING, str_lit),
+    ))
+}
+
+override rule _bare_list_lit {
+    choice(
+        prec(PREC.SPECIAL, defun),
+        prec(PREC.SPECIAL, loop_macro),
+        seq(
+            field(open, "("),
+            repeat(choice(field(value, _form), _gap)),
+            field(close, ")"),
+        ),
+    )
+}
+
+rule package_lit {
+    prec(PREC.PACKAGE_LIT, choice(
+        seq(
+            field(package, choice(sym_lit, "cl")),
+            choice(":", "::"),
+            field(symbol, sym_lit),
+        ),
+        prec(1, "cl"),
+    ))
+}
+
+rule _package_lit_without_slash {
+    seq(
+        field(package, choice(_sym_lit_without_slash, "cl")),
+        choice(":", "::"),
+        field(symbol, _sym_lit_without_slash),
+    )
+}
+
+override rule kwd_lit {
+    prec(PREC.KWD_LIT, seq(choice(":", "::"), kwd_symbol))
+}
+
+override rule sym_lit { seq(SYMBOL) }
+
+rule _sym_lit_without_slash {
+    alias(repeat1(SYMBOL_WITHOUT_SLASH), sym_lit)
+}
+
+rule kwd_symbol { seq(SYMBOL) }
+
+rule self_referential_reader_macro { regexp(r"#\d+[=#]") }
+
+override rule _form {
+    seq(
+        optional("#"),
+        choice(
+            num_lit, fancy_literal, vec_lit, kwd_lit,
+            alias(seq(field(open, "#"), optional(regexp(r"\d+[aA]")), list_lit), vec_lit),
+            str_lit, self_referential_reader_macro,
+            char_lit, nil_lit, path_lit, sym_lit,
+            package_lit, list_lit, set_lit,
+            read_cond_lit, splicing_read_cond_lit,
+            var_quoting_lit, quoting_lit, syn_quoting_lit,
+            unquote_splicing_lit, unquoting_lit,
+            include_reader_macro, complex_num_lit,
+            ".",
+        ),
+    )
+}
+
+override rule num_lit {
+    seq(NUMBER, optional(regexp(r"[sSfFdDlL]")))
+}
+
+rule include_reader_macro {
+    seq(
+        repeat(_metadata_lit),
+        field(marker, choice("#+", "#-")),
+        repeat(_gap),
+        field(condition, _form),
+        repeat(_gap),
+        field(target, _form),
+    )
+}
+
+rule complex_num_lit {
+    seq(
+        repeat(_metadata_lit),
+        field(marker, choice("#C", "#c")),
+        repeat(_gap),
+        "(",
+        repeat(_gap),
+        field(real, num_lit),
+        repeat(_gap),
+        field(imaginary, num_lit),
+        repeat(_gap),
+        ")",
+    )
+}
