@@ -2,16 +2,16 @@
 import PackageDescription
 
 let package = Package(
-    name: "TreeSitterCommonlisp",
+    name: "TreeSitterCommonLisp",
     platforms: [.macOS(.v13), .iOS(.v15)],
     products: [
-        .library(name: "TreeSitterCommonlisp", targets: ["TreeSitterCommonlisp"]),
+        .library(name: "TreeSitterCommonLisp", targets: ["TreeSitterCommonLisp"]),
     ],
     dependencies: [
         .package(url: "https://github.com/ChimeHQ/SwiftTreeSitter", from: "0.8.0"),
     ],
     targets: [
-        .target(name: "TreeSitterCommonlisp",
+        .target(name: "TreeSitterCommonLisp",
                 path: ".",
                 exclude: [
                     "Cargo.toml",
@@ -45,12 +45,12 @@ let package = Package(
                 publicHeadersPath: "bindings/swift",
                 cSettings: [.headerSearchPath("src")]),
          .testTarget(
-                name: "TreeSitterCommonlispTests",
+                name: "TreeSitterCommonLispTests",
                 dependencies: [
                     "SwiftTreeSitter",
-                    "TreeSitterCommonlisp",
+                    "TreeSitterCommonLisp",
                 ],
-                path: "bindings/swift/TreeSitterCommonlispTests"
+                path: "bindings/swift/TreeSitterCommonLispTests"
         )
     ],
     cLanguageStandard: .c11
