@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "TreeSitterCommonlisp",
-    platforms: [.macOS(.v10_13), .iOS(.v11)],
+    platforms: [.macOS(.v13), .iOS(.v15)],
     products: [
         .library(name: "TreeSitterCommonlisp", targets: ["TreeSitterCommonlisp"]),
     ],
