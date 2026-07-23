@@ -1,7 +1,7 @@
 
 import XCTest
 import SwiftTreeSitter
-import TreeSitterCommonlisp
+import TreeSitterCommonLisp
 
 final class TreeSitterCommonLispTests: XCTestCase {
     func testCanLoadGrammar() throws {
