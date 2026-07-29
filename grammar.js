@@ -242,9 +242,9 @@ module.exports = grammar(clojure, {
             repeat1($._for_part)), loopSymbol('and')),
         with_clause: $ => seq(loopSymbol('with'), repeat($._gap), choice($._form, seq($._form, repeat($._gap), field('type', $._form))), repeat($._gap), optSeq(loopSymbol("="), repeat($._gap)), optSeq($._form, repeat($._gap))),
         do_clause: $ => prec.left(seq(loopSymbol('do'), repeat1(prec.left(seq(repeat($._gap), $._form, repeat($._gap)))))),
-        while_clause: $ => prec.left(seq(choice(loopSymbol('while'), loopSymbol('until')), repeat($._gap), $._form)),
+        while_clause: $ => prec.left(seq(choice(loopSymbol('while'), loopSymbol('until'), loopSymbol('always'), loopSymbol('thereis'), loopSymbol('never')), repeat($._gap), $._form)),
         repeat_clause: $ => prec.left(seq(loopSymbol('repeat'), repeat($._gap), $._form)),
-        condition_clause: $ => prec.left(choice(seq(choice(loopSymbol('when'), loopSymbol('if'), loopSymbol('unless'), loopSymbol('always'), loopSymbol('thereis'), loopSymbol('never')), repeat($._gap), $._form), loopSymbol("else"))),
+        condition_clause: $ => prec.left(choice(seq(choice(loopSymbol('when'), loopSymbol('if'), loopSymbol('unless')), repeat($._gap), $._form), loopSymbol("else"), loopSymbol("end"))),
         accumulation_clause: $ => seq($.accumulation_verb, repeat($._gap), $._form, optional(seq(repeat($._gap), loopSymbol('into'), repeat($._gap), $._form))),
         termination_clause: $ => prec.left(seq(choice(loopSymbol('finally'), loopSymbol('return'), loopSymbol('initially')), repeat($._gap), $._form)),
 
